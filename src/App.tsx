@@ -1,33 +1,53 @@
-import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import './App.css'
+import { useState } from "react";
 
 function App() {
-  const [count, setCount] = useState(0)
+  const [ firstPlayerTurn, setFirstPlayerTurn ] = useState(true);
+  const board:Array<Array<string>> = new Array(10)
+  for (let i = 0; i < 10; i++) board[i] = new Array(10);
+  for (let i = 0; i < 10; i++) {
+    for (let j = 0; j < 10; j++) {
+      board[i][j] = '?';
+    }
+  }
+
+  const handleClick = () => {
+
+  }
 
   return (
-    <div className="App">
-      <div>
-        <a href="https://vitejs.dev" target="_blank">
-          <img src="/vite.svg" className="logo" alt="Vite logo" />
-        </a>
-        <a href="https://reactjs.org" target="_blank">
-          <img src={reactLogo} className="logo react" alt="React logo" />
-        </a>
+    <div className="h-screen w-full bg-zinc-900 p-10">
+      <div className="h-full w-full bg-slate-300 rounded-xl p-2">
+        {firstPlayerTurn && <Board board={board} handleClick={handleClick} />}
+        {!firstPlayerTurn && <Board board={board} handleClick={handleClick} />}
       </div>
-      <h1>Vite + React</h1>
-      <div className="card">
-        <button onClick={() => setCount((count) => count + 1)}>
-          count is {count}
-        </button>
-        <p>
-          Edit <code>src/App.tsx</code> and save to test HMR
-        </p>
-      </div>
-      <p className="read-the-docs">
-        Click on the Vite and React logos to learn more
-      </p>
     </div>
+  )
+}
+
+const Board = (
+  {board, handleClick}: 
+  {board: Array<Array<string>>, handleClick: () => void}
+) => {
+  return (
+    <table className="table-fixed border-collapse w-full h-full">
+      <thead>
+        <tr>
+          {Array.from(" ABCDEFGHIJ").map(letter => <th className="border border-slate-600">{letter}</th>)}
+        </tr>
+      </thead>
+      <tbody>
+        {board.map((row, i, board) => {
+          return (
+            <tr>
+              <td className="border border-slate-600 font-bold text-center">{i + 1}</td>
+              {row.map((col, j, board) => {
+                return <td key={`${i}${j}`} className="border border-slate-600 text-center hover:bg-slate-700 hover:text-white cursor-pointer select-none" onClick={() => handleClick}>{`${i}${j}`}</td>
+              })}
+            </tr>
+          )
+        })}
+      </tbody>
+    </table>
   )
 }
 
