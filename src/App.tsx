@@ -17,7 +17,10 @@ function App() {
   const [ userDataLoading, setUserDataLoading ] = useState(false);
   const [ page, setPage ] = useState('login');
   const [ gameLoading, setGameLoading ] = useState(false);
-  const [ gameData, setGameData ] = useState<{board: Array<Array<string>>, player1: string, player2: string, state: string}>()
+  const [ gameData, setGameData ] = useState<Game>()
+  const [ gameMessage, setGameMessage ] = useState('') 
+
+  interface Game { board: Array<Array<string>>, player1: string, player2: string, state: string }
 
   const loginOrRegister = (userName: string) => {
     setUserDataLoading(true);
@@ -40,39 +43,60 @@ function App() {
   }
 
   const joinGame = () => {
+    if (!userData) return;
     setPage("joinGame")
     setGameLoading(true)
     const gameRef = ref(database, "game/");
     onValue(gameRef, (snapshot) => {
-      const data = snapshot.val();
+      const data:Game = snapshot.val();
       if (data) {
+        console.log("data retrieved from database: ")
         console.log(data);
-        setGameData(data);
-      } else {
-        const board:Array<Array<string>> = new Array(10)
-        for (let i = 0; i < 10; i++) board[i] = new Array(10);
-        for (let i = 0; i < 10; i++) {
-          for (let j = 0; j < 10; j++) {
-            board[i][j] = '?';
-          }
+        if (data.player1 === '') {
+          setGameMessage("Greetings player 1, waiting on player 2....");
+          set(gameRef, {
+            player1: userData.name,
+            player2: '',
+            state: 'waiting on player 2',
+            board: data.board,
+          })
+        } else if (data.state = 'waiting on player 2') {
+          setGameMessage("Greetings player 2, initializing game...");
+          set(gameRef, {
+            player1: data.player1,
+            player2: userData.name,
+            state: 'ready to start',
+            board: data.board,
+          })
+        } else if (data.state = 'ready to start') {
+          setGameMessage(`Both players found (${data.player1} vs ${data.player2})`);
         }
-        setGameLoading(false);
-        set(gameRef, {
-          player1: userData?.name ?? '',
-          player2: '',
-          state: 'waiting for player2',
-          board: board,
-        })
+      } else {
+        console.log("game data is not available");
+        // const board:Array<Array<string>> = new Array(10)
+        // for (let i = 0; i < 10; i++) board[i] = new Array(10);
+        // for (let i = 0; i < 10; i++) {
+        //   for (let j = 0; j < 10; j++) {
+        //     board[i][j] = '?';
+        //   }
+        // }
+        // setGameLoading(false);
+        // set(gameRef, {
+        //   player1: userData?.name ?? '',
+        //   player2: '',
+        //   state: 'waiting for player2',
+        //   board: board,
+        // })
       }
     })
-    if (gameData?.player1 !== userData?.name) {
-      set(gameRef, {
-        player1: gameData?.player1,
-        player2: userData?.name,
-        state: "initializing game",
-        board: gameData?.board
-      })
-    }
+    // if (gameData?.player1 !== userData?.name) {
+    //   set(gameRef, {
+    //     player1: gameData?.player1,
+    //     player2: userData?.name,
+    //     state: "initializing game",
+    //     board: gameData?.board
+    //   })
+    // }
   }
 
   const spectateGame = () => {
@@ -125,7 +149,7 @@ function App() {
             {gameLoading && <p className="text-3xl">Loading game data...</p>}
             {gameData &&
               <div>
-                <p>{gameData.state}</p>
+                <p>{gameMessage}</p>
               </div>
             }
           </div>}
