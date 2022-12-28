@@ -17,7 +17,7 @@ function App() {
   const [ userDataLoading, setUserDataLoading ] = useState(false);
   const [ page, setPage ] = useState('login');
   const [ gameLoading, setGameLoading ] = useState(false);
-  const [ gameData, setGameData ] = useState()
+  const [ gameData, setGameData ] = useState<{board: Array<Array<string>>, player1: string, player2: string, state: string}>()
 
   const loginOrRegister = (userName: string) => {
     setUserDataLoading(true);
@@ -65,6 +65,14 @@ function App() {
         })
       }
     })
+    if (gameData?.player1 !== userData?.name) {
+      set(gameRef, {
+        player1: gameData?.player1,
+        player2: userData?.name,
+        state: "initializing game",
+        board: gameData?.board
+      })
+    }
   }
 
   const spectateGame = () => {
@@ -115,6 +123,11 @@ function App() {
           </div>}
           {page === 'joinGame' && <div>
             {gameLoading && <p className="text-3xl">Loading game data...</p>}
+            {gameData &&
+              <div>
+                <p>{gameData.state}</p>
+              </div>
+            }
           </div>}
         </div>  
       </div>
