@@ -52,7 +52,7 @@ function App() {
       if (data) {
         console.log("data retrieved from database: ")
         console.log(data);
-        if (data.player1 === '') {
+        if (data.state === 'waiting for players') {
           setGameMessage("Greetings player 1, waiting on player 2....");
           set(gameRef, {
             player1: userData.name,
@@ -60,7 +60,8 @@ function App() {
             state: 'waiting on player 2',
             board: data.board,
           })
-        } else if (data.state = 'waiting on player 2') {
+          setGameData(data);
+        } else if (data.state === 'waiting on player 2') {
           setGameMessage("Greetings player 2, initializing game...");
           set(gameRef, {
             player1: data.player1,
@@ -68,8 +69,12 @@ function App() {
             state: 'ready to start',
             board: data.board,
           })
-        } else if (data.state = 'ready to start') {
-          setGameMessage(`Both players found (${data.player1} vs ${data.player2})`);
+          setGameData(data);
+        } 
+        else if (data.state === 'ready to start') {
+        //   setGameMessage(`Both players found (${data.player1} vs ${data.player2})`);
+          console.log("here")
+          setGameData(data);
         }
       } else {
         console.log("game data is not available");
