@@ -19,9 +19,18 @@ function App() {
   const [ gameLoading, setGameLoading ] = useState(false);
   const [ gameData, setGameData ] = useState<Game>()
   const [ gameMessage, setGameMessage ] = useState('') 
-  const [ gameBoard, setGameBoard ] = useState<Array<Array<string>>>();
+  const [ myGameBoard, setMyGameBoard ] = useState<Array<Array<string>>>();
+  const [ theirGameBoard, setTheirGameBoard ] = useState<Array<Array<string>>>();
+  const [ myPlayerNumber, setMyPlayerNumber ] = useState<number>();
 
-  interface Game { board: Array<Array<string>>, player1: string, player2: string, state: string }
+  interface Game {
+    board: Array<Array<string>>,
+    player1: string,
+    player2: string,
+    state: string,
+    player1Board: Array<Array<string>>,
+    player2Board: Array<Array<string>>,
+  }
 
   const loginOrRegister = (userName: string) => {
     setUserDataLoading(true);
@@ -62,6 +71,8 @@ function App() {
               board: data.board,
               player1Turn: false,
             })
+            setGameData(data);
+            setMyPlayerNumber(1);
             break;
           case "waiting on player 2":
             setGameMessage("Greetings player 2, initializing game...");
@@ -71,7 +82,12 @@ function App() {
               state: "in progress",
               board: data.board,
               player1Turn: true,
+              player1Board: data.board,
+              player2Board: data.board,
             })
+            setMyPlayerNumber(2);
+            setGameData(data);
+            setGameMessage(`Game: ${data?.player1} vs ${data?.player2}`);
             initializeGame();
             break;
           default:
@@ -112,10 +128,18 @@ function App() {
   // }, [])
 
   const initializeGame = () => {
+    if (!userData) return;
     setPage('playGame');
-    onValue(ref(database, "game/board"), snapshot => {
-      const gameBoard:Array<Array<string>> = snapshot.val();
-      setGameBoard(gameBoard);
+    onValue(ref(database, "game"), snapshot => {
+      const data:Game = snapshot.val();
+      if (myPlayerNumber === 1) {
+        setMyGameBoard(data.player1Board);
+        setTheirGameBoard(data.player2Board);
+      } else {
+        setMyGameBoard(data.player2Board);
+        setTheirGameBoard(data.player1Board);
+      }
+      setGameData(data);
     })
   }
 
@@ -124,10 +148,13 @@ function App() {
   }
 
   const handleClick = (row: number, col: number) => {
-    if (gameBoard) {
-      console.log(gameBoard[row][col]);
-    }
+    // if (gameBoard) {
+    //   console.log(`location: row ${row}, col ${col}`)
+    //   console.log(gameBoard[row][col]);
+    // }
   }
+
+  // console.log(gameData)
   
 
   return (
@@ -179,7 +206,17 @@ function App() {
           {page === 'playGame' &&
             <div>
               <p className="text-3xl">{gameMessage}</p>  
-              <Board board={gameBoard!} handleClick={handleClick} />
+              {myGameBoard && theirGameBoard &&
+              <div>
+                <div>
+                  <p>{userData?.name}</p>
+                  <Board board={myGameBoard} handleClick={handleClick} />
+                </div>
+                <div>
+                  <p>{myPlayerNumber === 1 ? gameData?.player2 : gameData?.player1}</p>
+                  <Board board={theirGameBoard} handleClick={handleClick} />
+                </div>
+              </div>}
             </div>
           }
         </div>  
@@ -192,20 +229,26 @@ const Board = (
   {board, handleClick}: 
   {board: Array<Array<string>>, handleClick: (i: number, j: number) => void}
 ) => {
+  console.log(board)
   return (
     <table className="table-fixed border-collapse w-full h-full">
       <thead>
         <tr>
-          {Array.from(" ABCDEFGHIJ").map(letter => <th className="border border-slate-600">{letter}</th>)}
+          {Array.from(" ABCDEFGHIJ").map(letter => <th key={letter} className="border border-slate-600">{letter}</th>)}
         </tr>
       </thead>
       <tbody>
-        {board.map((row, i, board) => {
+        {board.map((row, i) => {
           return (
-            <tr>
+            <tr key={i}>
               <td className="border border-slate-600 font-bold text-center">{i + 1}</td>
-              {row.map((col, j, board) => {
-                return <td key={`${i}${j}`} className="border border-slate-600 text-center hover:bg-slate-700 hover:text-white cursor-pointer select-none" onClick={() => handleClick(i, j)}>{`${i}${j}`}</td>
+              {row.map((col, j) => {
+                // console.log(`location at ${i}${j}: ${board[i][j]}`)
+                return <td key={`${i}${j}`} className="border border-slate-600 text-center hover:bg-slate-700 hover:text-white cursor-pointer select-none" 
+                    onClick={() => handleClick(i, j)}
+                  >
+                    {`${i}${j}: ${board[i][j]}`}
+                  </td>
               })}
             </tr>
           )
