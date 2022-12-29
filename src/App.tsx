@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { database } from "./firebase";
 import { ref, set, onValue, get, child } from 'firebase/database'
 
@@ -19,6 +19,7 @@ function App() {
   const [ gameLoading, setGameLoading ] = useState(false);
   const [ gameData, setGameData ] = useState<Game>()
   const [ gameMessage, setGameMessage ] = useState('') 
+  const [ gameBoard, setGameBoard ] = useState<Array<Array<string>>>();
 
   interface Game { board: Array<Array<string>>, player1: string, player2: string, state: string }
 
@@ -47,66 +48,87 @@ function App() {
     setPage("joinGame")
     setGameLoading(true)
     const gameRef = ref(database, "game/");
-    onValue(gameRef, (snapshot) => {
-      const data:Game = snapshot.val();
-      if (data) {
-        console.log("data retrieved from database: ")
-        console.log(data);
-        if (data.state === 'waiting for players') {
-          setGameMessage("Greetings player 1, waiting on player 2....");
-          set(gameRef, {
-            player1: userData.name,
-            player2: '',
-            state: 'waiting on player 2',
-            board: data.board,
-          })
-          setGameData(data);
-        } else if (data.state === 'waiting on player 2') {
-          setGameMessage("Greetings player 2, initializing game...");
-          set(gameRef, {
-            player1: data.player1,
-            player2: userData.name,
-            state: 'ready to start',
-            board: data.board,
-          })
-          setGameData(data);
-        } 
-        else if (data.state === 'ready to start') {
-        //   setGameMessage(`Both players found (${data.player1} vs ${data.player2})`);
-          console.log("here")
-          setGameData(data);
+    get(child(ref(database), "game/")).then(snapshot => {
+      if (snapshot.exists()) {
+        console.log(snapshot.val());
+        const data:Game = snapshot.val()
+        switch (data.state) {
+          case "waiting for players":
+            setGameMessage("Greetings player 1, waiting on player 2 to connect...");
+            set(gameRef, {
+              player1: userData.name,
+              player2: data.player2,
+              state: 'waiting on player 2',
+              board: data.board,
+              player1Turn: false,
+            })
+            break;
+          case "waiting on player 2":
+            setGameMessage("Greetings player 2, initializing game...");
+            set(gameRef, {
+              player1: data.player1,
+              player2: userData.name,
+              state: "in progress",
+              board: data.board,
+              player1Turn: true,
+            })
+            initializeGame();
+            break;
+          default:
+            console.error("unknown state received from server");
+            break;
         }
       } else {
-        console.log("game data is not available");
-        // const board:Array<Array<string>> = new Array(10)
-        // for (let i = 0; i < 10; i++) board[i] = new Array(10);
-        // for (let i = 0; i < 10; i++) {
-        //   for (let j = 0; j < 10; j++) {
-        //     board[i][j] = '?';
-        //   }
-        // }
-        // setGameLoading(false);
-        // set(gameRef, {
-        //   player1: userData?.name ?? '',
-        //   player2: '',
-        //   state: 'waiting for player2',
-        //   board: board,
-        // })
+        console.log("game does not exist");
       }
+    }).catch(err => console.error(err))
+    setGameLoading(false);
+  }
+
+  // useEffect(() => {
+  //   return () => {
+  //     const board:Array<Array<string>> = new Array(10)
+  //     for (let i = 0; i < 10; i++) board[i] = new Array(10);
+  //     for (let i = 0; i < 10; i++) {
+  //       for (let j = 0; j < 10; j++) {
+  //         board[i][j] = '?';
+  //       }
+  //     }
+  //     get(child(ref(database), "game/")).then(snapshot => {
+  //       if (snapshot.exists()) {
+  //         const gameData:Game = snapshot.val();
+  //         if (gameData.state === 'in progress') {
+  //           set (ref(database, "game/"), {
+  //             player1: '',
+  //             player2: '',
+  //             state: 'waiting for players',
+  //             board: board,
+  //             player1Turn: false,
+  //           })
+  //         }
+  //       }
+  //     })
+  //   }
+  // }, [])
+
+  const initializeGame = () => {
+    setPage('playGame');
+    onValue(ref(database, "game/board"), snapshot => {
+      const gameBoard:Array<Array<string>> = snapshot.val();
+      setGameBoard(gameBoard);
     })
-    // if (gameData?.player1 !== userData?.name) {
-    //   set(gameRef, {
-    //     player1: gameData?.player1,
-    //     player2: userData?.name,
-    //     state: "initializing game",
-    //     board: gameData?.board
-    //   })
-    // }
   }
 
   const spectateGame = () => {
 
   }
+
+  const handleClick = (row: number, col: number) => {
+    if (gameBoard) {
+      console.log(gameBoard[row][col]);
+    }
+  }
+  
 
   return (
     <div className="relative h-screen w-full bg-zinc-900 pt-10 pb-2 px-2">
@@ -152,12 +174,14 @@ function App() {
           </div>}
           {page === 'joinGame' && <div>
             {gameLoading && <p className="text-3xl">Loading game data...</p>}
-            {gameData &&
-              <div>
-                <p>{gameMessage}</p>
-              </div>
-            }
+            {!gameLoading && <p className="text-3xl">{gameMessage}</p>}
           </div>}
+          {page === 'playGame' &&
+            <div>
+              <p className="text-3xl">{gameMessage}</p>  
+              <Board board={gameBoard!} handleClick={handleClick} />
+            </div>
+          }
         </div>  
       </div>
     </div>
@@ -166,7 +190,7 @@ function App() {
 
 const Board = (
   {board, handleClick}: 
-  {board: Array<Array<string>>, handleClick: () => void}
+  {board: Array<Array<string>>, handleClick: (i: number, j: number) => void}
 ) => {
   return (
     <table className="table-fixed border-collapse w-full h-full">
@@ -181,7 +205,7 @@ const Board = (
             <tr>
               <td className="border border-slate-600 font-bold text-center">{i + 1}</td>
               {row.map((col, j, board) => {
-                return <td key={`${i}${j}`} className="border border-slate-600 text-center hover:bg-slate-700 hover:text-white cursor-pointer select-none" onClick={() => handleClick}>{`${i}${j}`}</td>
+                return <td key={`${i}${j}`} className="border border-slate-600 text-center hover:bg-slate-700 hover:text-white cursor-pointer select-none" onClick={() => handleClick(i, j)}>{`${i}${j}`}</td>
               })}
             </tr>
           )
