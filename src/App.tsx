@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { database } from "./firebase";
 import { ref, set, onValue, get, child } from 'firebase/database'
+import { Ships } from "./types";
 
 function App() {
   const [ firstPlayerTurn, setFirstPlayerTurn ] = useState(true);
@@ -23,6 +24,36 @@ function App() {
   const [ theirGameBoard, setTheirGameBoard ] = useState<Array<Array<string>>>();
   const [ myPlayerNumber, setMyPlayerNumber ] = useState<number>();
   const [ player1Turn, setPlayer1Turn ] = useState<boolean>();
+  const [ ships, setShips ] = useState<Ships>({
+    carrier: {
+      start: '',
+      end: '',
+    },
+    battleship: {
+      start: '',
+      end: '',
+    },
+    destroyer: {
+      start: '',
+      end: '',
+    },
+    submarine: {
+      start: '',
+      end: '',
+    },
+    patrol: {
+      start: '',
+      end: '',
+    }
+  }); 
+  const [ shipsValid, setShipsValid ] = useState({
+    carrier: false,
+    battleship: false,
+    destroyer: false,
+    submarine: false,
+    patrol: false,
+  })
+
 
   interface Game {
     board: Array<Array<string>>,
@@ -33,6 +64,10 @@ function App() {
     player2Board: Array<Array<string>>,
     player1Turn: boolean,
   }
+
+  // useEffect(() => {
+  //   console.log(ships);
+  // }, [ships])
 
   const loginOrRegister = (userName: string) => {
     setUserDataLoading(true);
@@ -61,7 +96,7 @@ function App() {
     const gameRef = ref(database, "game/");
     get(child(ref(database), "game/")).then(snapshot => {
       if (snapshot.exists()) {
-        console.log(snapshot.val());
+        // console.log(snapshot.val());
         const data:Game = snapshot.val()
         switch (data.state) {
           case "waiting for players":
@@ -75,7 +110,9 @@ function App() {
             })
             setGameData(data);
             setMyPlayerNumber(1);
-            initializeGame();
+            setMyGameBoard(data.board);
+            setPage('setUpBoard');
+            // initializeGame();
             break;
           case "waiting on player 2":
             setGameMessage("Greetings player 2, initializing game...");
@@ -90,8 +127,9 @@ function App() {
             })
             setMyPlayerNumber(2);
             setGameData(data);
-            setGameMessage(`Game: ${data?.player1} vs ${userData?.name}`);
-            initializeGame();
+            setMyGameBoard(data.board);
+            setPage('setUpBoard');
+            // initializeGame();
             break;
           default:
             console.error("unknown state received from server");
@@ -137,19 +175,8 @@ function App() {
       const data:Game = snapshot.val();
       console.log('received change from server')
       console.log(data);
-      if (myPlayerNumber === 1) {
-        setMyGameBoard(data.player1Board);
-        setTheirGameBoard(data.player2Board);
-      } else {
-        setMyGameBoard(data.player2Board);
-        setTheirGameBoard(data.player1Board);
-      }
+      if (data.state === 'in progress') setGameMessage(`Game: ${data.player1} vs ${data.player2}`)
       setGameData(data);
-      if (data.player1Turn) {
-        setPlayer1Turn(true);
-      } else {
-        setPlayer1Turn(false);
-      }
     })
   }
 
@@ -158,19 +185,29 @@ function App() {
   }
 
   const sendSelection = (row: number, col: number) => {
-    if (!gameData || !userData || !theirGameBoard) return;
-    let tempGameBoard = theirGameBoard;
-    tempGameBoard[row][col] = 'X';
-    setMyGameBoard(tempGameBoard)
+    if (!gameData || !userData) return;
+    let tempGameBoard = null;
     if (myPlayerNumber === 1) {
+      tempGameBoard = gameData.player2Board;
+      tempGameBoard[row][col] = 'X';
+    } else {
+      tempGameBoard = gameData.player1Board;
+      tempGameBoard[row][col] = 'X';
+    }
+    if (tempGameBoard === null) return;
+    if (myPlayerNumber === 1) {
+      console.log("I am player 1")
+      console.log("Sending change to player 2 board")
       setGameData({
         ...gameData,
-        player2Board: theirGameBoard,
+        player2Board: tempGameBoard,
       })
     } else {
+      console.log("I am player 2")
+      console.log("Sending change to player 1 board")
       setGameData({
         ...gameData,
-        player1Board: theirGameBoard,
+        player1Board: tempGameBoard,
       })
     }
     set(ref(database, "game/"), gameData)
@@ -230,18 +267,46 @@ function App() {
             {gameLoading && <p className="text-3xl">Loading game data...</p>}
             {!gameLoading && <p className="text-3xl">{gameMessage}</p>}
           </div>}
+          {page === 'setUpBoard' &&
+            <div>
+              <p className="text-3xl">Time to set up your board!</p>
+              <p className="text-xl">Enter the start/end coordinates for each ship below:</p>
+              <Board 
+                board={myGameBoard || []}
+                handleClick={() => {}}
+                editable={false}
+              />
+              <div className="flex flex-col items-center">
+                <ShipInput 
+                  name="carrier"
+                  ships={ships}
+                  setShips={setShips}
+                  valid={shipsValid.carrier}
+                  setValid={(valid: boolean) => setShipsValid({...shipsValid, carrier: valid})}
+                />
+              </div>
+            </div>
+          }
           {page === 'playGame' &&
             <div>
               <p className="text-3xl">{gameMessage}</p>  
-              {myGameBoard && theirGameBoard &&
+              {
               <div>
                 <div>
-                  <p>{userData?.name}</p>
-                  <Board board={myGameBoard} handleClick={handleClick} />
+                  <p>Player 1: {gameData?.player1}</p>
+                  <Board 
+                    board={gameData?.player1Board || []} 
+                    handleClick={handleClick} 
+                    editable={myPlayerNumber !== 1}
+                  />
                 </div>
                 <div>
-                  <p>{myPlayerNumber === 1 ? gameData?.player2 : gameData?.player1}</p>
-                  <Board board={theirGameBoard} handleClick={handleClick} />
+                  <p>Player 2: {gameData?.player2}</p>
+                  <Board 
+                    board={gameData?.player2Board || []} 
+                    handleClick={handleClick} 
+                    editable={myPlayerNumber !== 2}
+                  />
                 </div>
               </div>}
             </div>
@@ -253,8 +318,8 @@ function App() {
 }
 
 const Board = (
-  {board, handleClick}: 
-  {board: Array<Array<string>>, handleClick: (i: number, j: number) => void}
+  {board, handleClick, editable}: 
+  {board: Array<Array<string>>, handleClick: (i: number, j: number) => void, editable: boolean}
 ) => {
   // console.log(board)
   return (
@@ -272,9 +337,12 @@ const Board = (
               {row.map((col, j) => {
                 // console.log(`location at ${i}${j}: ${board[i][j]}`)
                 return <td key={`${i}${j}`} className="border border-slate-600 text-center hover:bg-slate-700 hover:text-white cursor-pointer select-none" 
-                    onClick={() => handleClick(i, j)}
+                    onClick={() => {
+                      if (editable)
+                        handleClick(i, j)
+                    }}
                   >
-                    {`${i}${j}: ${board[i][j]}`}
+                    {editable ? (board[i][j] !== '?' ? board[i][j] : ' ') : board[i][j]}
                   </td>
               })}
             </tr>
@@ -282,6 +350,82 @@ const Board = (
         })}
       </tbody>
     </table>
+  )
+}
+
+const ShipInput = (
+  {name, ships, setShips, valid, setValid}: 
+  {
+    name: keyof Ships,
+    ships: Ships, 
+    setShips: (ships: Ships) => void, 
+    valid: boolean,
+    setValid: (valid: boolean) => void,
+  }
+) => {
+  const [ inputCheckStatus, setInputCheckStatus ] = useState('');
+
+  const distances = {
+    carrier: 4
+  }
+  
+  const checkIsValid = () => {
+    const start = ships[name].start;
+    const end = ships[name].end;
+    if (name === 'carrier') {
+      if (start.charAt(0) === end.charAt(0)) { // same letter - column
+        const distance = Number(end.charAt(1)) - Number(start.charAt(1));
+        if (distance === 4) {
+          setValid(true);
+          setInputCheckStatus("Looks good!")
+        } else if (distance < 4) {
+          setValid(false) 
+          setInputCheckStatus("Not enough space!")
+        } else if (distance > 4) {
+          setValid(false)
+          setInputCheckStatus("Too much space!");
+        }
+      } else if (start.charAt(1) === end.charAt(1)) { // same number - row
+
+      }
+    }
+  }
+  
+  return (
+    <div className="border-2 border-teal-700 w-80 rounded-xl p-2">
+      <p>{name}</p>
+      <p>{inputCheckStatus}</p>
+      <input 
+        type="text" 
+        placeholder="Start Position" 
+        value={ships[name].start} 
+        onChange={e => {
+          setShips({
+            ...ships,
+            [name]: {
+              start: e.target.value.toUpperCase(),
+              end: ships[name].end
+            }
+          })
+        }}
+        onBlur={() => checkIsValid()}
+      />
+      <input 
+        type="text" 
+        placeholder="End Position" 
+        value={ships[name].end} 
+        onChange={e => {
+          setShips({
+            ...ships,
+            [name]: {
+              start: ships[name].start,
+              end: e.target.value.toUpperCase(),
+            }
+          })
+        }}
+        onBlur={() => checkIsValid()}
+      />
+    </div>
   )
 }
 
