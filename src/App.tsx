@@ -22,6 +22,7 @@ function App() {
   const [ myGameBoard, setMyGameBoard ] = useState<Array<Array<string>>>();
   const [ theirGameBoard, setTheirGameBoard ] = useState<Array<Array<string>>>();
   const [ myPlayerNumber, setMyPlayerNumber ] = useState<number>();
+  const [ player1Turn, setPlayer1Turn ] = useState<boolean>();
 
   interface Game {
     board: Array<Array<string>>,
@@ -30,6 +31,7 @@ function App() {
     state: string,
     player1Board: Array<Array<string>>,
     player2Board: Array<Array<string>>,
+    player1Turn: boolean,
   }
 
   const loginOrRegister = (userName: string) => {
@@ -140,6 +142,11 @@ function App() {
         setTheirGameBoard(data.player1Board);
       }
       setGameData(data);
+      if (data.player1Turn) {
+        setPlayer1Turn(true);
+      } else {
+        setPlayer1Turn(false);
+      }
     })
   }
 
@@ -147,11 +154,28 @@ function App() {
 
   }
 
+  const sendSelection = (row: number, col: number) => {
+    if (!gameData || !userData || !theirGameBoard) return;
+    let tempGameBoard = theirGameBoard;
+    tempGameBoard[row][col] = 'X';
+    setMyGameBoard(tempGameBoard)
+    if (myPlayerNumber === 1) {
+      setGameData({
+        ...gameData,
+        player2Board: theirGameBoard,
+      })
+    } else {
+      setGameData({
+        ...gameData,
+        player1Board: theirGameBoard,
+      })
+    }
+    set(ref(database, "game/"), gameData)
+  }
+
   const handleClick = (row: number, col: number) => {
-    // if (gameBoard) {
-    //   console.log(`location: row ${row}, col ${col}`)
-    //   console.log(gameBoard[row][col]);
-    // }
+    if (!userData || !gameData) return;
+    sendSelection(row, col);
   }
 
   // console.log(gameData)
