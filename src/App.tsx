@@ -75,6 +75,7 @@ function App() {
             })
             setGameData(data);
             setMyPlayerNumber(1);
+            initializeGame();
             break;
           case "waiting on player 2":
             setGameMessage("Greetings player 2, initializing game...");
@@ -89,7 +90,7 @@ function App() {
             })
             setMyPlayerNumber(2);
             setGameData(data);
-            setGameMessage(`Game: ${data?.player1} vs ${data?.player2}`);
+            setGameMessage(`Game: ${data?.player1} vs ${userData?.name}`);
             initializeGame();
             break;
           default:
