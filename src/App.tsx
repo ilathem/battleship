@@ -135,6 +135,8 @@ function App() {
     setPage('playGame');
     onValue(ref(database, "game"), snapshot => {
       const data:Game = snapshot.val();
+      console.log('received change from server')
+      console.log(data);
       if (myPlayerNumber === 1) {
         setMyGameBoard(data.player1Board);
         setTheirGameBoard(data.player2Board);
@@ -254,7 +256,7 @@ const Board = (
   {board, handleClick}: 
   {board: Array<Array<string>>, handleClick: (i: number, j: number) => void}
 ) => {
-  console.log(board)
+  // console.log(board)
   return (
     <table className="table-fixed border-collapse w-full h-full">
       <thead>
