@@ -20,3 +20,11 @@ export interface Ships {
     end: string,
   }
 }
+
+export interface ShipDistances {
+  carrier: number,
+  battleship: number,
+  destroyer: number,
+  submarine: number,
+  patrol: number,
+}

@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { database } from "./firebase";
 import { ref, set, onValue, get, child } from 'firebase/database'
-import { Ships } from "./types";
+import { Ships, ShipDistances } from "./types";
 
 function App() {
   const [ firstPlayerTurn, setFirstPlayerTurn ] = useState(true);
@@ -21,7 +21,7 @@ function App() {
   const [ gameData, setGameData ] = useState<Game>()
   const [ gameMessage, setGameMessage ] = useState('') 
   const [ myGameBoard, setMyGameBoard ] = useState<Array<Array<string>>>();
-  const [ theirGameBoard, setTheirGameBoard ] = useState<Array<Array<string>>>();
+  const [ triggerRender, setTriggerRender ] = useState(false);
   const [ myPlayerNumber, setMyPlayerNumber ] = useState<number>();
   const [ player1Turn, setPlayer1Turn ] = useState<boolean>();
   const [ ships, setShips ] = useState<Ships>({
@@ -54,7 +54,6 @@ function App() {
     patrol: false,
   })
 
-
   interface Game {
     board: Array<Array<string>>,
     player1: string,
@@ -65,9 +64,54 @@ function App() {
     player1Turn: boolean,
   }
 
-  // useEffect(() => {
-  //   console.log(ships);
-  // }, [ships])
+  useEffect(() => {
+    let key: keyof typeof shipsValid;
+    const board:Array<Array<string>> = new Array(10)
+    for (let i = 0; i < 10; i++) board[i] = new Array(10);
+    for (let i = 0; i < 10; i++) {
+      for (let j = 0; j < 10; j++) {
+        board[i][j] = ' ';
+      }
+    }
+    let tempGameBoard = board;
+    for (key in shipsValid) {
+      if (shipsValid[key]) {
+        placeShip(key, tempGameBoard);
+      }
+    }
+    // console.log(tempGameBoard)
+    setMyGameBoard(tempGameBoard)
+    setTriggerRender(!triggerRender)
+  }, [ shipsValid ])
+
+  // console.log(myGameBoard);
+
+  const placeShip = (shipKey: keyof Ships, tempGameBoard: Array<Array<string>>) => {
+    const shipDistances: ShipDistances = {
+      carrier: 5,
+      battleship: 4,
+      destroyer: 3,
+      submarine: 3,
+      patrol: 2
+    }
+    let startRow = Number(ships[shipKey].start.charAt(1)) - 1;
+    let endRow = Number(ships[shipKey].end.charAt(1)) - 1;
+    let startCol = Number(ships[shipKey].start.slice(0, 1).toUpperCase().charCodeAt(0)) - 65;
+    let endCol = Number(ships[shipKey].end.slice(0, 1).toUpperCase().charCodeAt(0)) - 65;
+    // console.log({shipKey, startRow, endRow, startCol, endCol})
+    // tempGameBoard[startRow][startCol] = shipKey.charAt(0).toUpperCase();
+    // tempGameBoard[endRow][endCol] = shipKey.charAt(0).toUpperCase();
+    if (startCol === endCol) { // vertical
+      for (let i = startRow; i <= endRow; i++) {
+        tempGameBoard[i][startCol] = shipKey.charAt(0).toUpperCase();
+      }
+    } else { // horizontal
+      for (let i = startCol; i <= endCol; i++) {
+        tempGameBoard[startRow][i] = shipKey.charAt(0).toUpperCase();
+      }
+    }
+    // console.log(tempGameBoard)
+  }
 
   const loginOrRegister = (userName: string) => {
     setUserDataLoading(true);
@@ -222,7 +266,7 @@ function App() {
   
 
   return (
-    <div className="relative h-screen w-full bg-zinc-900 pt-10 pb-2 px-2">
+    <div className="relative h-screen w-full bg-zinc-900 pt-10 pb-2 px-2 overflow-hidden">
       {userData && <div className="absolute left-4 top-2 flex flex-row">
         <p className="text-white/90 text-xl bg-zinc-800 rounded-xl px-2 hover:text-white mr-4 transition">User: {userData?.name}</p>
         <p className="text-white/90 text-xl bg-zinc-800 rounded-xl px-2 hover:text-white mr-4 transition">Wins: {userData?.wins}</p>
@@ -235,7 +279,7 @@ function App() {
           setUserNameInput('')
         }}>Logout</button>}
       <div className="h-full w-full bg-slate-300 rounded-xl p-2">
-        <div className="text-xl text-center flex flex-col items-center">
+        <div className="text-xl text-center flex flex-col items-center h-full">
           <h1 className="text-4xl peer">{title}</h1>
           {page === 'login' && <form className="text-xl text-center flex flex-col items-center"
             onSubmit={(e) => {
@@ -267,23 +311,57 @@ function App() {
             {gameLoading && <p className="text-3xl">Loading game data...</p>}
             {!gameLoading && <p className="text-3xl">{gameMessage}</p>}
           </div>}
-          {page === 'setUpBoard' &&
-            <div>
-              <p className="text-3xl">Time to set up your board!</p>
-              <p className="text-xl">Enter the start/end coordinates for each ship below:</p>
-              <Board 
-                board={myGameBoard || []}
-                handleClick={() => {}}
-                editable={false}
-              />
-              <div className="flex flex-col items-center">
-                <ShipInput 
-                  name="carrier"
-                  ships={ships}
-                  setShips={setShips}
-                  valid={shipsValid.carrier}
-                  setValid={(valid: boolean) => setShipsValid({...shipsValid, carrier: valid})}
-                />
+          {page === 'setUpBoard' && myGameBoard && 
+            <div className="flex flex-col h-[calc(100%-2em)]">
+              <div className="">
+                <p className="text-3xl">Time to set up your board!</p>
+                <p className="text-xl">Enter the start/end coordinates for each ship below:</p>
+              </div>
+              <div className="flex flex-col h-1/2">
+                <div className="basis-2/4">
+                  <Board 
+                    board={myGameBoard}
+                    handleClick={() => {}}
+                    editable={false}
+                  />
+                </div>
+                <div className="flex flex-col items-center overflow-y-scroll h-1/2">
+                  <ShipInput 
+                    name="carrier"
+                    ships={ships}
+                    setShips={setShips}
+                    valid={shipsValid.carrier}
+                    setValid={(valid: boolean) => setShipsValid({...shipsValid, carrier: valid})}
+                  />
+                  <ShipInput 
+                    name="battleship"
+                    ships={ships}
+                    setShips={setShips}
+                    valid={shipsValid.battleship}
+                    setValid={(valid: boolean) => setShipsValid({...shipsValid, battleship: valid})}
+                  />
+                  <ShipInput 
+                    name="destroyer"
+                    ships={ships}
+                    setShips={setShips}
+                    valid={shipsValid.destroyer}
+                    setValid={(valid: boolean) => setShipsValid({...shipsValid, destroyer: valid})}
+                  />
+                  <ShipInput 
+                    name="submarine"
+                    ships={ships}
+                    setShips={setShips}
+                    valid={shipsValid.submarine}
+                    setValid={(valid: boolean) => setShipsValid({...shipsValid, submarine: valid})}
+                  />
+                  <ShipInput 
+                    name="patrol"
+                    ships={ships}
+                    setShips={setShips}
+                    valid={shipsValid.patrol}
+                    setValid={(valid: boolean) => setShipsValid({...shipsValid, patrol: valid})}
+                  />
+                </div>
               </div>
             </div>
           }
@@ -364,36 +442,54 @@ const ShipInput = (
   }
 ) => {
   const [ inputCheckStatus, setInputCheckStatus ] = useState('');
-
-  const distances = {
-    carrier: 4
-  }
   
   const checkIsValid = () => {
     const start = ships[name].start;
     const end = ships[name].end;
-    if (name === 'carrier') {
-      if (start.charAt(0) === end.charAt(0)) { // same letter - column
-        const distance = Number(end.charAt(1)) - Number(start.charAt(1));
-        if (distance === 4) {
-          setValid(true);
-          setInputCheckStatus("Looks good!")
-        } else if (distance < 4) {
-          setValid(false) 
-          setInputCheckStatus("Not enough space!")
-        } else if (distance > 4) {
-          setValid(false)
-          setInputCheckStatus("Too much space!");
-        }
-      } else if (start.charAt(1) === end.charAt(1)) { // same number - row
-
-      }
+    if (start.charAt(0) === end.charAt(0)) { // same letter = column
+      const distance = Number(end.charAt(1)) - Number(start.charAt(1)) + 1; // add one because indexing starts at 1
+      checkDistance(distance, name);
+    } else if (start.charAt(1) === end.charAt(1)) { // same number = row
+      const distance = Number(end.charCodeAt(0)) - Number(start.charCodeAt(0)) + 1; // add one because indexing starts at 1
+      checkDistance(distance, name);
+    } else {
+      setValid(false)
+      setInputCheckStatus('Incorrect format (ex: A1)');
     }
+  }
+
+  const checkDistance = (distance: number, shipClass: keyof Ships ) => {
+    const shipDistances: ShipDistances = {
+      carrier: 5,
+      battleship: 4,
+      destroyer: 3,
+      submarine: 3,
+      patrol: 2
+    }
+    const acceptedDistance: number = shipDistances[shipClass] || -1;
+    if (distance === acceptedDistance) {
+      setValid(true);
+      setInputCheckStatus("Looks good!")
+    } else if (distance < acceptedDistance) {
+      setValid(false) 
+      setInputCheckStatus("Not enough space!")
+    } else if (distance > acceptedDistance) {
+      setValid(false)
+      setInputCheckStatus("Too much space!");
+    } 
+  }
+
+  const borderStyles = {
+    carrier: "border-2 border-teal-700 w-80 rounded-xl p-2 m-2",
+    battleship: "border-2 border-red-700 w-80 rounded-xl p-2 m-2",
+    destroyer: "border-2 border-amber-700 w-80 rounded-xl p-2 m-2",
+    submarine: "border-2 border-lime-700 w-80 rounded-xl p-2 m-2",
+    patrol: "border-2 border-rose-700 w-80 rounded-xl p-2 m-2",
   }
   
   return (
-    <div className="border-2 border-teal-700 w-80 rounded-xl p-2">
-      <p>{name}</p>
+    <div className={borderStyles[name]}>
+      <p>{`${name.charAt(0).toUpperCase()}${name.slice(1)}`}</p>
       <p>{inputCheckStatus}</p>
       <input 
         type="text" 
