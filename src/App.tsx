@@ -53,6 +53,7 @@ function App() {
     submarine: false,
     patrol: false,
   })
+  const [ allShipsValid, setAllShipsValid ] = useState(false);
 
   interface Game {
     board: Array<Array<string>>,
@@ -62,6 +63,8 @@ function App() {
     player1Board: Array<Array<string>>,
     player2Board: Array<Array<string>>,
     player1Turn: boolean,
+    player1Placements: Array<Array<string>>,
+    player2Placements: Array<Array<string>>,
   }
 
   useEffect(() => {
@@ -74,17 +77,42 @@ function App() {
       }
     }
     let tempGameBoard = board;
+    let numShipsValid = 0;
     for (key in shipsValid) {
       if (shipsValid[key]) {
         placeShip(key, tempGameBoard);
+        numShipsValid++;
       }
     }
+    if (numShipsValid === 5) setAllShipsValid(true);
+    else setAllShipsValid(false);
     // console.log(tempGameBoard)
     setMyGameBoard(tempGameBoard)
     setTriggerRender(!triggerRender)
+
+    console.log(shipsValid)
   }, [ shipsValid ])
 
   // console.log(myGameBoard);
+
+  const sendShipPlacements = () => {
+    get(child(ref(database), "game/")).then(snapshot => {
+      if (!snapshot.exists()) return;
+      const data:Game = snapshot.val();
+      if (myPlayerNumber === 1) {
+        set(ref(database, "game/"), {
+          ...data,
+          player1Placements: myGameBoard
+        })
+      } else {
+        set(ref(database, "game/"), {
+          ...data,
+          player2Placements: myGameBoard
+        })
+      }
+    })
+    initializeGame();
+  }
 
   const placeShip = (shipKey: keyof Ships, tempGameBoard: Array<Array<string>>) => {
     const shipDistances: ShipDistances = {
@@ -94,10 +122,27 @@ function App() {
       submarine: 3,
       patrol: 2
     }
-    let startRow = Number(ships[shipKey].start.charAt(1)) - 1;
-    let endRow = Number(ships[shipKey].end.charAt(1)) - 1;
-    let startCol = Number(ships[shipKey].start.slice(0, 1).toUpperCase().charCodeAt(0)) - 65;
-    let endCol = Number(ships[shipKey].end.slice(0, 1).toUpperCase().charCodeAt(0)) - 65;
+    const start = ships[shipKey].start;
+    const end = ships[shipKey].end;
+    const startRow = Number(String(start.charAt(1)) + String(start.charAt(2))) - 1;
+    const endRow = Number(String(end.charAt(1)) + String(end.charAt(2))) - 1;
+    // let startRow = 0, endRow = 0, startCol = 0, endCol = 0;
+    // if (ships[shipKey].start.length === 2) {
+    //   startRow = Number(ships[shipKey].start.charAt(1)) - 1;
+    //   endRow = Number(ships[shipKey].end.charAt(1)) - 1;
+    // } else if (ships[shipKey].start.length === 3) {
+    //   startRow = Number(
+    //     String(ships[shipKey].start.charAt(1)) + 
+    //     String(ships[shipKey].start.charAt(2))
+    //   ) - 1;
+    //   endRow = Number(
+    //     String(ships[shipKey].end.charAt(1)) + 
+    //     String(ships[shipKey].end.charAt(2))
+    //   ) - 1;
+    // }
+    const startCol = Number(ships[shipKey].start.slice(0, 1).toUpperCase().charCodeAt(0)) - 65;
+    const endCol = Number(ships[shipKey].end.slice(0, 1).toUpperCase().charCodeAt(0)) - 65;
+    console.log({startRow, endRow})
     // console.log({shipKey, startRow, endRow, startCol, endCol})
     // tempGameBoard[startRow][startCol] = shipKey.charAt(0).toUpperCase();
     // tempGameBoard[endRow][endCol] = shipKey.charAt(0).toUpperCase();
@@ -159,15 +204,12 @@ function App() {
             // initializeGame();
             break;
           case "waiting on player 2":
-            setGameMessage("Greetings player 2, initializing game...");
+            setGameMessage("Greetings player 2");
             set(gameRef, {
-              player1: data.player1,
+              ...data,
               player2: userData.name,
-              state: "in progress",
-              board: data.board,
+              state: 'in progress',
               player1Turn: true,
-              player1Board: data.board,
-              player2Board: data.board,
             })
             setMyPlayerNumber(2);
             setGameData(data);
@@ -313,19 +355,17 @@ function App() {
           </div>}
           {page === 'setUpBoard' && myGameBoard && 
             <div className="flex flex-col h-[calc(100%-2em)]">
-              <div className="">
-                <p className="text-3xl">Time to set up your board!</p>
-                <p className="text-xl">Enter the start/end coordinates for each ship below:</p>
-              </div>
-              <div className="flex flex-col h-1/2">
-                <div className="basis-2/4">
+              <p className="text-3xl">Time to set up your board!</p>
+              <p className="text-xl">Enter the start/end coordinates for each ship below:</p>
+              <div className="flex flex-col h-[calc(100%-5em)]">
+                <div>
                   <Board 
                     board={myGameBoard}
                     handleClick={() => {}}
                     editable={false}
                   />
                 </div>
-                <div className="flex flex-col items-center overflow-y-scroll h-1/2">
+                <div className="flex flex-col flex-1 overflow-auto items-center">
                   <ShipInput 
                     name="carrier"
                     ships={ships}
@@ -361,6 +401,12 @@ function App() {
                     valid={shipsValid.patrol}
                     setValid={(valid: boolean) => setShipsValid({...shipsValid, patrol: valid})}
                   />
+                  {allShipsValid &&
+                    <button
+                      className="text-3xl border-2 border-black rounded-xl p-8 w-full hover:bg-black/5 max-w-xl"
+                      onClick={() => sendShipPlacements()}
+                    >Proceed</button>
+                  }
                 </div>
               </div>
             </div>
@@ -446,16 +492,45 @@ const ShipInput = (
   const checkIsValid = () => {
     const start = ships[name].start;
     const end = ships[name].end;
-    if (start.charAt(0) === end.charAt(0)) { // same letter = column
-      const distance = Number(end.charAt(1)) - Number(start.charAt(1)) + 1; // add one because indexing starts at 1
-      checkDistance(distance, name);
-    } else if (start.charAt(1) === end.charAt(1)) { // same number = row
+    const startNum = Number(String(start.charAt(1)) + String(start.charAt(2)));
+    const endNum = Number(String(end.charAt(1)) + String(end.charAt(2)));
+    const startChar = start.charAt(0);
+    const endChar = end.charAt(0);
+    console.log({startNum, startChar, endNum, endChar})
+    if (startChar === endChar) { // same letter = column
+      checkDistance(endNum - startNum + 1, name);
+    } else if (startNum === endNum) { // same number = row
       const distance = Number(end.charCodeAt(0)) - Number(start.charCodeAt(0)) + 1; // add one because indexing starts at 1
       checkDistance(distance, name);
     } else {
       setValid(false)
       setInputCheckStatus('Incorrect format (ex: A1)');
     }
+    // else if (
+    //   start.length === end.length &&
+    //   start.length === 3
+    // ) {
+    //   const startNum = Number(String(start.charAt(1)) + String(start.charAt(2)));
+    //   const endNum = Number(String(end.charAt(1)) + String(end.charAt(2)));
+    //   const startChar = start.charAt(0);
+    //   const endChar = end.charAt(0);
+    //   if (startChar === endChar) {
+    //     checkDistance(endNum - startNum, name);
+    //   } else if (startNum === endNum) {
+    //     const distance = Number(endChar.charCodeAt(0)) - Number(startChar.charCodeAt(0)) + 1;
+    //     checkDistance(distance, name);
+    //   }
+    // } else {
+    //   setValid(false)
+    //   setInputCheckStatus('Incorrect format (ex: A1)');
+    // }
+  }
+  const shipDistances: ShipDistances = {
+    carrier: 5,
+    battleship: 4,
+    destroyer: 3,
+    submarine: 3,
+    patrol: 2
   }
 
   const checkDistance = (distance: number, shipClass: keyof Ships ) => {
@@ -489,7 +564,7 @@ const ShipInput = (
   
   return (
     <div className={borderStyles[name]}>
-      <p>{`${name.charAt(0).toUpperCase()}${name.slice(1)}`}</p>
+      <p>{`${name.charAt(0).toUpperCase()}${name.slice(1)} (${shipDistances[name]})`}</p>
       <p>{inputCheckStatus}</p>
       <input 
         type="text" 
