@@ -9,7 +9,7 @@ function App() {
     for (let i = 0; i < 10; i++) board[i] = new Array(10);
     for (let i = 0; i < 10; i++) {
         for (let j = 0; j < 10; j++) {
-            board[i][j] = '?';
+            board[i][j] = ' ';
         }
     }
     const [title, setTitle] = useState('Battleship');
@@ -107,11 +107,13 @@ function App() {
                 set(ref(database, 'game/'), {
                     ...data,
                     player1Placements: myGameBoard,
+                    player1Board: board,
                 });
             } else {
                 set(ref(database, 'game/'), {
                     ...data,
                     player2Placements: myGameBoard,
+                    player2Board: board,
                 });
             }
         });
@@ -135,20 +137,6 @@ function App() {
             Number(String(start.charAt(1)) + String(start.charAt(2))) - 1;
         const endRow =
             Number(String(end.charAt(1)) + String(end.charAt(2))) - 1;
-        // let startRow = 0, endRow = 0, startCol = 0, endCol = 0;
-        // if (ships[shipKey].start.length === 2) {
-        //   startRow = Number(ships[shipKey].start.charAt(1)) - 1;
-        //   endRow = Number(ships[shipKey].end.charAt(1)) - 1;
-        // } else if (ships[shipKey].start.length === 3) {
-        //   startRow = Number(
-        //     String(ships[shipKey].start.charAt(1)) +
-        //     String(ships[shipKey].start.charAt(2))
-        //   ) - 1;
-        //   endRow = Number(
-        //     String(ships[shipKey].end.charAt(1)) +
-        //     String(ships[shipKey].end.charAt(2))
-        //   ) - 1;
-        // }
         const startCol =
             Number(
                 ships[shipKey].start.slice(0, 1).toUpperCase().charCodeAt(0)
@@ -179,21 +167,20 @@ function App() {
         setUserDataLoading(true);
         const userRef = ref(database, 'users/' + userName);
 
-        get(child(ref(database), `users/${userName}`))
-            .then(snapshot => {
-                if (snapshot.val()) {
-                    // console.log(snapshot.val());
-                    setUserDataLoading(false);
-                    setUserData(snapshot.val());
-                } else {
-                    setUserDataLoading(false);
-                    set(userRef, {
-                        name: userName,
-                        wins: 0,
-                        losses: 0,
-                    })
-                }
-            })
+        get(child(ref(database), `users/${userName}`)).then((snapshot) => {
+            if (snapshot.val()) {
+                // console.log(snapshot.val());
+                setUserDataLoading(false);
+                setUserData(snapshot.val());
+            } else {
+                setUserDataLoading(false);
+                set(userRef, {
+                    name: userName,
+                    wins: 0,
+                    losses: 0,
+                });
+            }
+        });
 
         setPage('selectOption');
     };
@@ -222,7 +209,7 @@ function App() {
                             });
                             setGameData(data);
                             setMyPlayerNumber(1);
-                            setMyGameBoard(data.board);
+                            setMyGameBoard(board);
                             setPage('setUpBoard');
                             // initializeGame();
                             break;
@@ -379,7 +366,7 @@ function App() {
                             />
                             {userNameInput && (
                                 <button
-                                    type="button"
+                                    type='button'
                                     className='transition opacity-0 peer-valid:opacity-100 border-black/50 border-2 px-4 py-2 rounded-full active:bg-slate-400 hover:bg-slate-400/50 cursor-pointer'
                                     onClick={() =>
                                         loginOrRegister(userNameInput)
@@ -526,15 +513,27 @@ function App() {
                                     <div>
                                         <p>Player 1: {gameData?.player1}</p>
                                         <Board
-                                            board={gameData?.player1Board || []}
+                                            board={
+                                                myPlayerNumber === 1
+                                                    ? gameData?.player1Placements ||
+                                                      []
+                                                    : gameData?.player1Board ||
+                                                      []
+                                            }
                                             handleClick={handleClick}
                                             editable={myPlayerNumber !== 1}
                                         />
                                     </div>
                                     <div>
-                                        <p>Player 2: {gameData?.player2}</p>
+                                        <p>Player 2:{gameData?.player2}</p>
                                         <Board
-                                            board={gameData?.player2Board || []}
+                                            board={
+                                                myPlayerNumber === 2
+                                                    ? gameData?.player2Placements ||
+                                                      []
+                                                    : gameData?.player2Board ||
+                                                      []
+                                            }
                                             handleClick={handleClick}
                                             editable={myPlayerNumber !== 2}
                                         />
@@ -609,24 +608,24 @@ const ShipInput = ({
     setShips,
     valid,
     setValid,
-    myGameBoard
+    myGameBoard,
 }: {
     name: keyof Ships;
     ships: Ships;
     setShips: (ships: Ships) => void;
     valid: boolean;
     setValid: (valid: boolean) => void;
-    myGameBoard: string[][]
+    myGameBoard: string[][];
 }) => {
     interface Coordinates {
-        startNum: number,
-        endNum: number,
-        startChar: string,
-        endChar: string,
+        startNum: number;
+        endNum: number;
+        startChar: string;
+        endChar: string;
     }
 
     const [inputCheckStatus, setInputCheckStatus] = useState('');
-    const [coordinates, setCoordinates] = useState<Coordinates>()
+    // const [coordinates, setCoordinates] = useState<Coordinates>();
 
     const checkIsValid = () => {
         const start = ships[name].start;
@@ -642,16 +641,16 @@ const ShipInput = ({
         const endNum = Number(String(end.charAt(1)) + String(end.charAt(2)));
         const startChar = start.charAt(0);
         const endChar = end.charAt(0);
-        console.log({ startNum, startChar, endNum, endChar });
-        setCoordinates({ startNum, startChar, endNum, endChar })
+        // console.log({ startNum, startChar, endNum, endChar });
+        // setCoordinates({ startNum, startChar, endNum, endChar });
         if (startChar === endChar) {
             // same letter = column
-            checkDistance(endNum - startNum + 1, name);
+            checkDistance(endNum - startNum + 1, name, { startNum, startChar, endNum, endChar });
         } else if (startNum === endNum) {
             // same number = row
             const distance =
                 Number(end.charCodeAt(0)) - Number(start.charCodeAt(0)) + 1; // add one because indexing starts at 1
-            checkDistance(distance, name);
+            checkDistance(distance, name, { startNum, startChar, endNum, endChar });
         } else {
             setValid(false);
             setInputCheckStatus('Incorrect format (ex: A1)');
@@ -665,7 +664,7 @@ const ShipInput = ({
         patrol: 2,
     };
 
-    const checkDistance = (distance: number, shipClass: keyof Ships) => {
+    const checkDistance = (distance: number, shipClass: keyof Ships, coordinates: Coordinates) => {
         const shipDistances: ShipDistances = {
             carrier: 5,
             battleship: 4,
@@ -675,11 +674,11 @@ const ShipInput = ({
         };
         const acceptedDistance: number = shipDistances[shipClass] || -1;
         if (distance === acceptedDistance) {
-            if (!checkIfOverlapExists()) {
+            if (!checkIfOverlapExists(coordinates)) {
                 setValid(true);
                 setInputCheckStatus('Looks good!');
             } else {
-                setInputCheckStatus('There\'s already a ship there!');
+                setInputCheckStatus("There's already a ship there!");
             }
         } else if (distance < acceptedDistance) {
             setValid(false);
@@ -690,13 +689,15 @@ const ShipInput = ({
         }
     };
 
-    const checkIfOverlapExists = () => {
+    const checkIfOverlapExists = (coordinates: Coordinates) => {
         // console.log("overlap:")
         // console.log(ships)
         if (coordinates) {
-            console.log("coordinates:")
-            const startCol = Number(coordinates.startChar.toUpperCase().charCodeAt(0)) - 65;
-            const endCol = Number(coordinates.endChar.toUpperCase().charCodeAt(0)) - 65;
+            // console.log('coordinates:');
+            const startCol =
+                Number(coordinates.startChar.toUpperCase().charCodeAt(0)) - 65;
+            const endCol =
+                Number(coordinates.endChar.toUpperCase().charCodeAt(0)) - 65;
             const startRow = coordinates.startNum - 1;
             const endRow = coordinates.endNum - 1;
             // console.log({
@@ -704,12 +705,12 @@ const ShipInput = ({
             //     end: [endRow, endCol]
             // })
 
-            // console.log(myGameBoard)
+            console.log(myGameBoard);
 
             for (let i = startRow; i <= endRow; i++) {
                 for (let j = startCol; j <= endCol; j++) {
                     if (myGameBoard[i][j] !== ' ') {
-                        // console.log(`This space is already taken: ${i}, ${j} is ${myGameBoard[i][j]}`)
+                        console.log(`This space is already taken: ${i}, ${j} is ${myGameBoard[i][j]}`)
                         return true;
                     }
                 }
@@ -718,7 +719,7 @@ const ShipInput = ({
         } else {
             return true;
         }
-    }
+    };
 
     const borderStyles = {
         carrier: 'border-2 border-teal-700 w-80 rounded-xl p-2 m-2',
