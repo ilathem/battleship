@@ -691,7 +691,7 @@ const ShipInput = ({
     };
 
     const checkIfOverlapExists = () => {
-        console.log("overlap:")
+        // console.log("overlap:")
         // console.log(ships)
         if (coordinates) {
             console.log("coordinates:")
@@ -699,17 +699,17 @@ const ShipInput = ({
             const endCol = Number(coordinates.endChar.toUpperCase().charCodeAt(0)) - 65;
             const startRow = coordinates.startNum - 1;
             const endRow = coordinates.endNum - 1;
-            console.log({
-                start: [startRow, startCol],
-                end: [endRow, endCol]
-            })
+            // console.log({
+            //     start: [startRow, startCol],
+            //     end: [endRow, endCol]
+            // })
 
-            console.log(myGameBoard)
+            // console.log(myGameBoard)
 
             for (let i = startRow; i <= endRow; i++) {
                 for (let j = startCol; j <= endCol; j++) {
                     if (myGameBoard[i][j] !== ' ') {
-                        console.log(`This space is already taken: ${i}, ${j} is ${myGameBoard[i][j]}`)
+                        // console.log(`This space is already taken: ${i}, ${j} is ${myGameBoard[i][j]}`)
                         return true;
                     }
                 }
