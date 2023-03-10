@@ -272,8 +272,15 @@ function App() {
             const data: Game = snapshot.val();
             // console.log('received change from server');
             // console.log(data);
-            if (data.state === 'in progress')
-                setGameMessage(`Game: ${data.player1} vs ${data.player2}`);
+            if (data.state === 'in progress') {
+                setGameMessage(`
+                    ${
+                        data.player1Turn
+                            ? `${data.player1}'s Turn`
+                            : `${data.player2}'s Turn`
+                    }`
+                );
+            }
             setGameData(data);
         });
     };
@@ -285,28 +292,36 @@ function App() {
         let tempGameBoard = null;
         if (myPlayerNumber === 1) {
             tempGameBoard = gameData.player2Board;
-            tempGameBoard[row][col] = 'X';
+            if (gameData.player2Placements[row][col] !== ' ') {
+                tempGameBoard[row][col] = 'X';
+            } else {
+                tempGameBoard[row][col] = 'O';
+            }
         } else {
             tempGameBoard = gameData.player1Board;
-            tempGameBoard[row][col] = 'X';
+            if (gameData.player1Placements[row][col] !== ' ') {
+                tempGameBoard[row][col] = 'X';
+            } else {
+                tempGameBoard[row][col] = 'O';
+            }
         }
         if (tempGameBoard === null) return;
+        let tempGameData = gameData;
         if (myPlayerNumber === 1) {
             // console.log('I am player 1');
             // console.log('Sending change to player 2 board');
-            setGameData({
-                ...gameData,
-                player2Board: tempGameBoard,
-            });
+            tempGameData.player1Turn = false;
+            tempGameData.player2Board = tempGameBoard;
         } else {
             // console.log('I am player 2');
             // console.log('Sending change to player 1 board');
-            setGameData({
-                ...gameData,
-                player1Board: tempGameBoard,
-            });
+            tempGameData.player1Turn = true;
+            tempGameData.player1Board = tempGameBoard;
         }
-        set(ref(database, 'game/'), gameData);
+
+        setGameData(tempGameData);
+
+        set(ref(database, 'game/'), tempGameData);
     };
 
     const handleClick = (row: number, col: number) => {
@@ -521,7 +536,11 @@ function App() {
                                                       []
                                             }
                                             handleClick={handleClick}
-                                            editable={myPlayerNumber !== 1}
+                                            editable={
+                                                        (myPlayerNumber !== 1) 
+                                                        && 
+                                                        (gameData?.player1Turn === false)
+                                                    }
                                         />
                                     </div>
                                     <div>
@@ -535,7 +554,11 @@ function App() {
                                                       []
                                             }
                                             handleClick={handleClick}
-                                            editable={myPlayerNumber !== 2}
+                                            editable={
+                                                        (myPlayerNumber !== 2)
+                                                        &&
+                                                        (gameData?.player1Turn === true)
+                                                    }
                                         />
                                     </div>
                                 </div>
@@ -645,12 +668,22 @@ const ShipInput = ({
         // setCoordinates({ startNum, startChar, endNum, endChar });
         if (startChar === endChar) {
             // same letter = column
-            checkDistance(endNum - startNum + 1, name, { startNum, startChar, endNum, endChar });
+            checkDistance(endNum - startNum + 1, name, {
+                startNum,
+                startChar,
+                endNum,
+                endChar,
+            });
         } else if (startNum === endNum) {
             // same number = row
             const distance =
                 Number(end.charCodeAt(0)) - Number(start.charCodeAt(0)) + 1; // add one because indexing starts at 1
-            checkDistance(distance, name, { startNum, startChar, endNum, endChar });
+            checkDistance(distance, name, {
+                startNum,
+                startChar,
+                endNum,
+                endChar,
+            });
         } else {
             setValid(false);
             setInputCheckStatus('Incorrect format (ex: A1)');
@@ -664,7 +697,11 @@ const ShipInput = ({
         patrol: 2,
     };
 
-    const checkDistance = (distance: number, shipClass: keyof Ships, coordinates: Coordinates) => {
+    const checkDistance = (
+        distance: number,
+        shipClass: keyof Ships,
+        coordinates: Coordinates
+    ) => {
         const shipDistances: ShipDistances = {
             carrier: 5,
             battleship: 4,
@@ -710,7 +747,9 @@ const ShipInput = ({
             for (let i = startRow; i <= endRow; i++) {
                 for (let j = startCol; j <= endCol; j++) {
                     if (myGameBoard[i][j] !== ' ') {
-                        console.log(`This space is already taken: ${i}, ${j} is ${myGameBoard[i][j]}`)
+                        console.log(
+                            `This space is already taken: ${i}, ${j} is ${myGameBoard[i][j]}`
+                        );
                         return true;
                     }
                 }
