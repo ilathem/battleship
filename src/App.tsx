@@ -3,7 +3,13 @@ import { database } from './firebase';
 import { ref, set, onValue, get, child } from 'firebase/database';
 import { Ships, ShipDistances } from './types';
 
+/* 
+all common pieces will be put together with a newline in between
+so that { and } work better when navigating using vim motions
+*/
+
 function App() {
+    // State Section
     const [firstPlayerTurn, setFirstPlayerTurn] = useState(true);
     const board: Array<Array<string>> = new Array(10);
     for (let i = 0; i < 10; i++) board[i] = new Array(10);
@@ -18,11 +24,11 @@ function App() {
         name: string;
         wins: number;
         losses: number;
-    }>();
+    } | null>();
     const [userDataLoading, setUserDataLoading] = useState(false);
     const [page, setPage] = useState('login');
     const [gameLoading, setGameLoading] = useState(false);
-    const [gameData, setGameData] = useState<Game>();
+    const [gameData, setGameData] = useState<Game | null>();
     const [gameMessage, setGameMessage] = useState('');
     const [myGameBoard, setMyGameBoard] = useState<Array<Array<string>>>();
     const [triggerRender, setTriggerRender] = useState(false);
@@ -59,6 +65,7 @@ function App() {
     });
     const [allShipsValid, setAllShipsValid] = useState(false);
 
+    // Interface / Type Declarations
     interface Game {
         board: Array<Array<string>>;
         player1: string;
@@ -71,6 +78,17 @@ function App() {
         player2Placements: Array<Array<string>>;
     }
 
+    // Functions
+    const makeMeABoard = (fillerCharacter: string): Array<Array<string>> => {
+        const board: Array<Array<string>> = new Array(10);
+        for (let i = 0; i < 10; i++) board[i] = new Array(10);
+        for (let i = 0; i < 10; i++) {
+            for (let j = 0; j < 10; j++) {
+                board[i][j] = fillerCharacter;
+            }
+        }
+        return board;
+    }
     useEffect(() => {
         let key: keyof typeof shipsValid;
         const board: Array<Array<string>> = new Array(10);
@@ -93,12 +111,8 @@ function App() {
         // console.log(tempGameBoard)
         setMyGameBoard(tempGameBoard);
         setTriggerRender(!triggerRender);
-
         // console.log(shipsValid);
     }, [shipsValid]);
-
-    // console.log(myGameBoard);
-
     const sendShipPlacements = () => {
         get(child(ref(database), 'game/')).then((snapshot) => {
             if (!snapshot.exists()) return;
@@ -119,7 +133,6 @@ function App() {
         });
         initializeGame();
     };
-
     const placeShip = (
         shipKey: keyof Ships,
         tempGameBoard: Array<Array<string>>
@@ -161,12 +174,10 @@ function App() {
         }
         // console.log(tempGameBoard)
     };
-
     const loginOrRegister = (userName: string) => {
         // console.log("clicked log in")
         setUserDataLoading(true);
         const userRef = ref(database, 'users/' + userName);
-
         get(child(ref(database), `users/${userName}`)).then((snapshot) => {
             if (snapshot.val()) {
                 // console.log(snapshot.val());
@@ -181,10 +192,8 @@ function App() {
                 });
             }
         });
-
         setPage('selectOption');
     };
-
     const joinGame = () => {
         if (!userData) return;
         setPage('joinGame');
@@ -238,7 +247,6 @@ function App() {
             .catch((err) => console.error(err));
         setGameLoading(false);
     };
-
     // useEffect(() => {
     //   return () => {
     //     const board:Array<Array<string>> = new Array(10)
@@ -264,7 +272,6 @@ function App() {
     //     })
     //   }
     // }, [])
-
     const initializeGame = () => {
         if (!userData) return;
         setPage('playGame');
@@ -284,9 +291,7 @@ function App() {
             setGameData(data);
         });
     };
-
     const spectateGame = () => {};
-
     const sendSelection = (row: number, col: number) => {
         if (!gameData || !userData) return;
         let tempGameBoard = null;
@@ -318,21 +323,100 @@ function App() {
             tempGameData.player1Turn = true;
             tempGameData.player1Board = tempGameBoard;
         }
-
         setGameData(tempGameData);
-
         set(ref(database, 'game/'), tempGameData);
     };
-
     const handleClick = (row: number, col: number) => {
         if (!userData || !gameData) return;
         sendSelection(row, col);
     };
 
-    // console.log(gameData)
-
+    // Rendering
     return (
         <div className='relative h-screen w-full bg-zinc-900 pt-10 pb-2 px-2 overflow-hidden'>
+            <button
+                className='absolute bottom-0 left-0 bg-green-500 p-2 rounded active:scale-90 transition m-2' 
+                onClick={() => {
+                    const blankGame: Game = {
+                        board: makeMeABoard('?'),
+                        player1: '',
+                        player1Board: makeMeABoard(''),
+                        player2Board: makeMeABoard(''),
+                        player2: '',
+                        player1Placements: makeMeABoard(''),
+                        player2Placements: makeMeABoard(''),
+                        player1Turn: false,
+                        state: 'waiting for players'
+                    }
+                    setPage('login')
+                    setUserData(null)
+                    setGameData(null)
+                    set(ref(database, 'game/'), blankGame)
+                    setShips({
+                        carrier: {
+                            start: '',
+                            end: '',
+                        },
+                        battleship: {
+                            start: '',
+                            end: '',
+                        },
+                        destroyer: {
+                            start: '',
+                            end: '',
+                        },
+                        submarine: {
+                            start: '',
+                            end: '',
+                        },
+                        patrol: {
+                            start: '',
+                            end: '',
+                        },
+                    })
+                    setShipsValid({
+                        carrier: false,
+                        battleship: false,
+                        destroyer: false,
+                        submarine: false,
+                        patrol: false,
+                    })
+                }}
+            >Reset</button>
+            <button 
+                className='absolute bottom-0 left-20 bg-green-500 p-2 rounded active:scale-90 transition m-2' 
+                onClick={() => {
+                    setShips({
+                        carrier: {
+                            start: 'A1',
+                            end: 'A5',
+                        },
+                        battleship: {
+                            start: 'B1',
+                            end: 'B4',
+                        },
+                        destroyer: {
+                            start: 'C1',
+                            end: 'C3',
+                        },
+                        submarine: {
+                            start: 'D1',
+                            end: 'D3',
+                        },
+                        patrol: {
+                            start: 'E1',
+                            end: 'E2',
+                        },
+                    })
+                    setShipsValid({
+                        carrier: true,
+                        battleship: true,
+                        destroyer: true,
+                        submarine: true,
+                        patrol: true,
+                    })
+                }}
+            >Load test ships</button>
             {userData && (
                 <div className='absolute left-4 top-2 flex flex-row'>
                     <p className='text-white/90 text-xl bg-zinc-800 rounded-xl px-2 hover:text-white mr-4 transition'>
@@ -571,6 +655,7 @@ function App() {
     );
 }
 
+// Renders each game board
 const Board = ({
     board,
     handleClick,
@@ -625,6 +710,7 @@ const Board = ({
     );
 };
 
+// Ship text input
 const ShipInput = ({
     name,
     ships,
@@ -640,16 +726,17 @@ const ShipInput = ({
     setValid: (valid: boolean) => void;
     myGameBoard: string[][];
 }) => {
+    // State / Types
     interface Coordinates {
         startNum: number;
         endNum: number;
         startChar: string;
         endChar: string;
     }
-
     const [inputCheckStatus, setInputCheckStatus] = useState('');
     // const [coordinates, setCoordinates] = useState<Coordinates>();
 
+    // Functions
     const checkIsValid = () => {
         const start = ships[name].start;
         const end = ships[name].end;
@@ -696,7 +783,6 @@ const ShipInput = ({
         submarine: 3,
         patrol: 2,
     };
-
     const checkDistance = (
         distance: number,
         shipClass: keyof Ships,
@@ -725,7 +811,6 @@ const ShipInput = ({
             setInputCheckStatus('Too much space!');
         }
     };
-
     const checkIfOverlapExists = (coordinates: Coordinates) => {
         // console.log("overlap:")
         // console.log(ships)
@@ -741,9 +826,7 @@ const ShipInput = ({
             //     start: [startRow, startCol],
             //     end: [endRow, endCol]
             // })
-
             console.log(myGameBoard);
-
             for (let i = startRow; i <= endRow; i++) {
                 for (let j = startCol; j <= endCol; j++) {
                     if (myGameBoard[i][j] !== ' ') {
@@ -759,7 +842,6 @@ const ShipInput = ({
             return true;
         }
     };
-
     const borderStyles = {
         carrier: 'border-2 border-teal-700 w-80 rounded-xl p-2 m-2',
         battleship: 'border-2 border-red-700 w-80 rounded-xl p-2 m-2',
@@ -768,6 +850,7 @@ const ShipInput = ({
         patrol: 'border-2 border-rose-700 w-80 rounded-xl p-2 m-2',
     };
 
+    // Rendering
     return (
         <div className={borderStyles[name]}>
             <p>{`${name.charAt(0).toUpperCase()}${name.slice(1)} (${
