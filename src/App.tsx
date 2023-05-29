@@ -3,11 +3,6 @@ import { database } from './firebase';
 import { ref, set, onValue, get, child } from 'firebase/database';
 import { Ships, ShipDistances } from './types';
 
-/* 
-all common pieces will be put together with a newline in between
-so that { and } work better when navigating using vim motions
-*/
-
 function App() {
     // State Section
     const [firstPlayerTurn, setFirstPlayerTurn] = useState(true);
@@ -76,6 +71,9 @@ function App() {
         player1Turn: boolean;
         player1Placements: Array<Array<string>>;
         player2Placements: Array<Array<string>>;
+        player1Hits?: number;
+        player2Hits?: number;
+        winner?: string;
     }
 
     // Functions
@@ -114,6 +112,7 @@ function App() {
         // console.log(shipsValid);
     }, [shipsValid]);
     const sendShipPlacements = () => {
+        console.log('sending ship placements')
         get(child(ref(database), 'game/')).then((snapshot) => {
             if (!snapshot.exists()) return;
             const data: Game = snapshot.val();
@@ -247,31 +246,6 @@ function App() {
             .catch((err) => console.error(err));
         setGameLoading(false);
     };
-    // useEffect(() => {
-    //   return () => {
-    //     const board:Array<Array<string>> = new Array(10)
-    //     for (let i = 0; i < 10; i++) board[i] = new Array(10);
-    //     for (let i = 0; i < 10; i++) {
-    //       for (let j = 0; j < 10; j++) {
-    //         board[i][j] = '?';
-    //       }
-    //     }
-    //     get(child(ref(database), "game/")).then(snapshot => {
-    //       if (snapshot.exists()) {
-    //         const gameData:Game = snapshot.val();
-    //         if (gameData.state === 'in progress') {
-    //           set (ref(database, "game/"), {
-    //             player1: '',
-    //             player2: '',
-    //             state: 'waiting for players',
-    //             board: board,
-    //             player1Turn: false,
-    //           })
-    //         }
-    //       }
-    //     })
-    //   }
-    // }, [])
     const initializeGame = () => {
         if (!userData) return;
         setPage('playGame');
@@ -287,6 +261,8 @@ function App() {
                             : `${data.player2}'s Turn`
                     }`
                 );
+            } else if (data.state === 'game over') {
+                setGameMessage(`Game over, winner is ${data.winner}`)
             }
             setGameData(data);
         });
@@ -295,10 +271,14 @@ function App() {
     const sendSelection = (row: number, col: number) => {
         if (!gameData || !userData) return;
         let tempGameBoard = null;
+        let tempGameData = gameData;
+        let gameIsWon = false;
         if (myPlayerNumber === 1) {
             tempGameBoard = gameData.player2Board;
             if (gameData.player2Placements[row][col] !== ' ') {
                 tempGameBoard[row][col] = 'X';
+                tempGameData.player1Hits = (gameData.player1Hits || 0) + 1;
+                if (tempGameData.player1Hits === 17) gameIsWon = true;
             } else {
                 tempGameBoard[row][col] = 'O';
             }
@@ -306,12 +286,13 @@ function App() {
             tempGameBoard = gameData.player1Board;
             if (gameData.player1Placements[row][col] !== ' ') {
                 tempGameBoard[row][col] = 'X';
+                tempGameData.player2Hits = (gameData.player2Hits || 0) + 1;
+                if (tempGameData.player2Hits === 17) gameIsWon = true;
             } else {
                 tempGameBoard[row][col] = 'O';
             }
         }
         if (tempGameBoard === null) return;
-        let tempGameData = gameData;
         if (myPlayerNumber === 1) {
             // console.log('I am player 1');
             // console.log('Sending change to player 2 board');
@@ -322,6 +303,10 @@ function App() {
             // console.log('Sending change to player 1 board');
             tempGameData.player1Turn = true;
             tempGameData.player1Board = tempGameBoard;
+        }
+        if (gameIsWon) {
+            tempGameData.state = 'game over'
+            tempGameData.winner = userData.name;
         }
         setGameData(tempGameData);
         set(ref(database, 'game/'), tempGameData);
@@ -610,7 +595,7 @@ function App() {
                             {
                                 <div>
                                     <div>
-                                        <p>Player 1: {gameData?.player1}</p>
+                                        <p>Player 1: {gameData?.player1}'s Board</p>
                                         <Board
                                             board={
                                                 myPlayerNumber === 1
@@ -628,7 +613,7 @@ function App() {
                                         />
                                     </div>
                                     <div>
-                                        <p>Player 2:{gameData?.player2}</p>
+                                        <p>Player 2: {gameData?.player2}'s Board</p>
                                         <Board
                                             board={
                                                 myPlayerNumber === 2
